@@ -1,0 +1,109 @@
+{
+  "verified_at_utc": "2026-10-22T20:44:55.907596+00:00",
+  "sources": [
+    {
+      "kind": "authenticated_browser",
+      "url": "https://github.com/settings/billing",
+      "owner": "yasthekiller007-lang",
+      "cycle": "2026-10-01/2026-10-31",
+      "observed_minutes_used": 2003,
+      "observed_minutes_included": 3000,
+      "minutes_remaining_arithmetic": 997,
+      "storage_display": "0 GB used / 2 GB included",
+      "actions_billable_usage_usd": 0
+    },
+    {
+      "kind": "authenticated_browser",
+      "url": "https://github.com/settings/billing/payment_information",
+      "observed_text": "You have not added a payment method."
+    },
+    {
+      "kind": "authenticated_browser",
+      "url": "https://github.com/settings/billing/budgets",
+      "budget_count": 5,
+      "actions_budget_scope": "Account: all repositories owned by yasthekiller007-lang",
+      "actions_budget_usd": 0,
+      "reported_status": "Usage blocked",
+      "stop_usage_when_budget_limit_reached": true,
+      "alert_is_not_the_blocking_control": true,
+      "other_budgets": [
+        "Codespaces: $0, Usage blocked",
+        "Packages: $0, Usage blocked",
+        "Git LFS: $0, Usage blocked",
+        "All AI Credit SKUs: $0, Usage blocked"
+      ]
+    },
+    {
+      "kind": "authenticated_browser_and_connector",
+      "repository": "yasthekiller007-lang/finleak-e2e-bench",
+      "visibility": "private",
+      "default_branch": "main",
+      "actor": "yasthekiller007-lang",
+      "permission": "admin",
+      "actions_enabled": true,
+      "workflow_default_token_permissions": "read",
+      "cross_repository_workflow_access": "NONE",
+      "fork_pull_request_workflows": false,
+      "automatic_import_runs": 0,
+      "app_selection": "Only select repositories; existing product repository retained; only finleak-e2e-bench added"
+    },
+    {
+      "kind": "authenticated_github_api",
+      "query": "Both owner repositories: statuses queued,in_progress,waiting,pending,requested",
+      "observed_active_or_queued_runs": 0
+    },
+    {
+      "kind": "byte_verification",
+      "p0_source_commit": "59d8e95d1f9a507e7488e2b4860e343f6d907142",
+      "source_archive_sha256": "9b6178566a92883b35604d0d24d139b01341f7bfddcb133d96ff76593e6a4ea6",
+      "archive_manifest_files": 1003,
+      "import_commit": "283f48a32da9512ef1d987e68a719f36e32b3406",
+      "independently_downloaded_repository_zip_sha256": "f409d6a7882affcd6ffb6c73a38c18d0a68c7b5e4653dd28d8e8008b680d5fe8",
+      "imported_files_sha256_verified": 455,
+      "mismatches": 0,
+      "only_additional_initial_file": "README.md",
+      "active_workflows": [
+        ".github/workflows/finleak-p0.yml"
+      ],
+      "product_main_before_after": "c02424c2f3d910af771dcdc05e2f5cb281de4bef"
+    }
+  ],
+  "primary_documentary_sources": [
+    {
+      "url": "https://docs.github.com/en/billing/concepts/product-billing/github-actions",
+      "reviewed_points": [
+        "Private standard runner minutes draw from owner included quota",
+        "No valid payment method: usage blocked at quota exhaustion; larger runners blocked",
+        "Logs and job summaries do not consume artifact allowance",
+        "Artifact storage metering may be delayed; cache has separate quota"
+      ]
+    },
+    {
+      "url": "https://docs.github.com/en/billing/concepts/budgets-and-alerts",
+      "reviewed_points": [
+        "Budget type/scope define paid use contributing to spending",
+        "First-cycle budget omits usage before its creation; it does not retrospectively cancel charges"
+      ]
+    }
+  ],
+  "bounded_admission_assessment": {
+    "classification": "REVIEW ASSESSMENT; NOT PROOF OF A JOB ALREADY ACCEPTED OR A RUNTIME PASS",
+    "basis": "Authenticated 997-minute balance, no payment method, account-wide $0 blocking Actions budget, standard runner permission, no active or queued jobs, one 10-minute job, no cache/artifact/custom-image uploads. Official GitHub documentation distinguishes paid-budget spending from included quota and blocks quota overage without a valid payment method.",
+    "badge_interpretation": "Protective paid-use budget badge retained. Included-quota scheduling is assessed permissible from documented policy and observed account/repository settings; the platform may still refuse and that refusal is final for this authorization.",
+    "first_cycle_and_metering_limits": "No prior billable Actions charge is displayed. The authorization covers only new bounded usage, not retroactive account qualification. Quota margin is 997 minutes for a maximum 10-minute standard job; no artifact/cache storage is created. No payment method independently blocks paid overage. Delayed metering and budget creation history do not authorize or require a spending change.",
+    "storage_remaining_gate_value": "1024 MiB conservative admission margin under authenticated display 0/2 GB; not a byte-exact storage balance. Planned artifact/cache increment is zero.",
+    "if_github_refuses": "STOP, preserve observed denial, no budget/payment/policy change and no second dispatch",
+    "no_absolute_future_account_cost_guarantee": true
+  },
+  "observed_ui_incident": {
+    "description": "Budget menu unexpectedly displayed a deletion confirmation. Cancel was selected; deletion was not confirmed. Direct subsequent read verified same budget ID, amount 0 and stop_usage checked. No billing mutation was performed."
+  },
+  "authorization": {
+    "scope": "One manual P0 execution after scoped connector extension and verified import, user-authorized in this conversation",
+    "maximum_jobs": 1,
+    "maximum_job_minutes": 10,
+    "retries": 0,
+    "production": false,
+    "phase7_qualification": false
+  }
+}
