@@ -1,0 +1,17 @@
+{
+  "profile": "pilot-advisory-review/1",
+  "reviews": [
+    {
+      "id": "GHSA-vfj7-8cjw-p6xm",
+      "package": "braces",
+      "version": "3.0.3",
+      "scope": "npm-lock-dev-only",
+      "review_date": "2026-10-04",
+      "expires": "2026-10-09T00:00:00Z",
+      "primary_advisory": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+      "evidence": "docs/phase7-dependency-review.md",
+      "status": "AFFECTED DEVELOPMENT PACKAGE; CUSTOMER RUNTIME NOT AFFECTED",
+      "reason": "Only eslint-config-next -> eslint-plugin-next -> fast-glob -> micromatch imports the locked package. No customer-controlled glob patterns; default ESLint root directory is cwd. Exact-head standalone runtime absence is reasserted before applying this scoped review. No published patch; re-review/upgrade is required before expiry."
+    }
+  ]
+}

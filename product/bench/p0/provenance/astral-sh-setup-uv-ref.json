@@ -1,0 +1,10 @@
+{
+  "ref": "refs/tags/v6",
+  "node_id": "REF_kwDOMnghHqxyZWZzL3RhZ3MvdjY",
+  "url": "https://api.github.com/repos/astral-sh/setup-uv/git/refs/tags/v6",
+  "object": {
+    "sha": "d0d8abe699bfb85fec6de9f7adb5ae17292296ff",
+    "type": "tag",
+    "url": "https://api.github.com/repos/astral-sh/setup-uv/git/tags/d0d8abe699bfb85fec6de9f7adb5ae17292296ff"
+  }
+}

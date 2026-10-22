@@ -1,0 +1,23 @@
+--- a/frontend/tests/product-v20-saved-workspace.test.tsx
++++ b/frontend/tests/product-v20-saved-workspace.test.tsx
+@@ -257,12 +257,14 @@
+     panel().getByRole("button", { name: "Update saved criteria" }),
+   );
+   expect(update).toHaveBeenCalledTimes(1);
+-  fireEvent.click(
+-    panel().getByRole("button", { name: "Confirm update criteria" }),
+-  );
+-  await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+-  expect(update.mock.calls[1][4]).toHaveProperty("definition");
+-  expect(update.mock.calls[1][3]).toBe(2);
++  await waitFor(() =>
++    expect(panel().getByText("No changes to save")).toBeInTheDocument(),
++  );
++  expect(
++    panel().getByRole("button", { name: "Confirm replacement" }),
++  ).toBeDisabled();
++  expect(update).toHaveBeenCalledTimes(1);
++  expect(panel().getByText(/Server version 2/)).toBeInTheDocument();
+ });
+ it("requires deletion confirmation and preserves financial data and decisions", async () => {
+   const { gateway } = await seed();

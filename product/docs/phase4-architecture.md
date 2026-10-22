@@ -1,0 +1,78 @@
+# Phase 4 V1 architecture
+
+Financial policy remains [the approved business specification](phase4-business-spec.md), PD-01 through PD-07. The implementation was explicitly authorized against main `e1bdae347bfe6d9b8d7c9b92ec8efc3e723943a1`. This document describes technical choices, not new financial policy.
+
+## Stable reviewed business identity
+
+`ReviewedFinancialSource` is the stable contract or invoice identity anchored to an immutable source Document, unique by organization/document/kind. Creating or retrying source review returns the same identity; extraction reruns never create business entities. An anchor is an identity, not approval. Different extraction runs and later reviewed evidence attach to revisions of this same source. Additional amendments and corrected supporting documents can be cited without replacing its identity.
+
+Existing Contract/Invoice entities remain available. Invoice requires supplier, date, number, amount and currency, and InvoiceLineItem requires positive quantity. ContractVersion has one generic amount and cannot represent term-specific precedence or scoped pricing. Populating these from incomplete candidates would invent truth; reusing their mutable amount/case structures would also conflict with historical immutability. Therefore Phase 4 introduces reviewed sources and immutable evaluations instead of forcing candidates into required columns or silently creating duplicate Contracts/Invoices. A single source represents one master contract or one invoice; mixed-business-entity source documents need separate reviewed source material.
+
+Stable fact identity is `(organization, source, kind, key)`; revisions have an increasing number and explicit predecessor. Kinds are contractual term, billed scope, reference, governing packet and association. Term and billed-scope keys survive extraction reruns and approval corrections. `FinancialRevision` stores a versioned typed meaning, original source provenance, uncertainty resolution, knowledge cutoff, actor, time, review reason and request identity. Review values contain finite decimal strings, not JSON floats. `FinancialRevisionEvidence` adds normalized, composite tenant-safe links to Document/ExtractionRun/ExtractedField; its frozen detail preserves raw machine values, normalized candidates, source location, hashes, confidence, and parser/extractor/schema versions. Manual review requires an actual tenant-owned document, source location, quotation, and explicit evidence mapping for every value leaf. Manual citations are reviewer attestations; software does not autonomously verify legal meaning.
+
+Phase 3 processing and confidence retain their meanings. Neither `processed` nor high confidence promotes authority. Source-content identity cannot be edited after financial reference; later evidence is a new document/revision. Filename changes and extraction reruns remain non-authoritative metadata changes.
+
+## Review and authority
+
+Analysts prepare source reviews; viewers only read. Owner/admin approval, correction, withdrawal/revocation, governing-packet decisions, associations, evaluations and finding decisions require current database membership. Permissions are enforced by the backend and by authority-insert database triggers. Membership rows stay share-locked during an authoritative transaction, so a concurrent role change cannot bypass the decision check. OIDC credentials stay server-side.
+
+Records are append-only. Prepared corrections suspend current use of the affected fact pending an owner/admin decision. A new approved correction has a new approval revision. Owner/admin can withdraw a prepared review without ever approving it; withdrawal of a new, never-approved proposal does not invent or destroy financial authority. Revocation of an approved applicable contractual term blocks its scope, including when an older price remains in the packet; it cannot silently restore an older entitlement. Historical evaluations and monetary amounts stay unchanged. Derived staleness and current review decisions describe their present eligibility.
+
+Packet approval is a bounded attestation of master, amendments, schedules, exhibits and exceptions, named scopes, explicit effective interval/open-ended semantics, included document hashes, known missing material, uncertainty and knowledge time. A missing relevant document or unresolved packet blocks calculation. Source term evidence must be in the governing packet. Scope-specific facts are selected without newest-upload, signature-order, filename or version-number precedence. Explicit source-backed term replacement keys are the only implemented precedence.
+
+A reviewed association selects one master per invoice. Exact-reference and approved-PO methods require approved identifiers matching the invoice/line; manual associations require source-backed approval. Conflicting stronger identifiers block. Same-party/scope records can identify candidates or ambiguity only. No fuzzy/supplier-only/date-only match produces authority. Currency and entity compatibility are separate financial gates. Matching outcomes remain independent of ProcessingStatus and CaseStatus.
+
+## Deterministic compilation and arithmetic
+
+The pure layer is `app/financial/engine.py`, with frozen input schemas and nominal Quantity, UnitPrice, MonetaryAmount and Percentage values. It has no HTTP, ORM, storage, provider or LLM dependency. Compilation selects typed terms or returns a stable blocker. Current immutable behavior identifiers are `reviewed-compiler/1`, `core-bundle/1`, and `financial-snapshot/1`; changing released behavior requires new identifiers rather than modifying historical snapshots.
+
+The three families are fixed unit price, one fixed complete cycle/event fee, and one explicit unconditional percentage discount. Tiers, minimums, surcharge/unauthorized-fee rules, conditional/early-payment/fixed-money/compound discounts, forecast quantity, FX, tax interpretation, proration and cross-invoice credits are outside V1. Applicable unsupported terms block the affected scope. Disjoint supported scopes can still be assessed.
+
+Economic date follows each approved contractual selector. Service date/interval precedes an expressly permitted invoice-date fallback. Invoice/event date selectors must be source-reviewed. Due/upload/extraction/signature dates are not automatic substitutes. Unknown effective end is different from a reviewed open-ended period. Retroactive terms require explicit reviewed applicability.
+
+A change-crossing interval needs separate approved child billing scopes and an approved parent. Children must reconcile both quantity and posted amount to that parent, cover its interval contiguously without overlap, and preserve entity/currency/unit identity. No average price or daily allocation is inferred. The parent is excluded from overlapping assessment. Allocations involving credits currently block pending a supported detailed allocation profile; no credit distribution is guessed.
+
+R1 computes price × billed quantity. R2 uses one expressly complete cycle/event. R3 applies a percentage to a complete explicit eligible contractual base, preserving excluded components. Standalone discount-base amounts require supporting evidence from the governing packet, not only invoice amounts. Base members and eligibility must reconcile. R1/R2 plus R3 share one coherent scope calculation; the engine never creates additive price and discount findings for the same amount.
+
+Actual billing must reconcile reviewed billed prices/quantities, gross, explicit discounts and posted pre-tax amounts. Credits/adjustments need distinct economic-entry keys, signed negative amounts, exact scope allocation and same-invoice meaning; duplicates, cross-invoice or unallocated relevant entries block. Comparable currency, units, parties, tax basis and source precision are mandatory.
+
+Decimal context precision is 80. Each source number has at most 20 digits/6 fractional places. Price × quantity needs at most 40 significant digits, multiplication by a source percentage stays below 60, and bounded sums of at most 100 base components add at most 2 digits. The context therefore retains exact bounded products/sums; unintended inexact arithmetic traps. Division is only by the terminating 100 percentage denominator. Deliberate quantization occurs only at an approved scope/component stage and quantum. Component rounding requires individual posted reconciliation. Unknown mode can proceed only across a complete reviewed set whose monetary result is invariant; material mode/stage differences block. Exact intermediates and every comparison remain in the trace. Outputs are validated before NUMERIC(20,6) insertion. Float, nonfinite, overflow and excess source scale fail; no epsilon or materiality threshold suppresses a positive cent.
+
+Positive discrepancy is potential leakage, zero is an assessed no-overcharge result, and negative is informational undercharge. Blocked amounts are null. These outcomes do not claim recovery, fraud, legal liability or guaranteed savings.
+
+## Atomic evaluation and scoped idempotency
+
+PostgreSQL READ COMMITTED plus one organization-row `FOR UPDATE` lock provides the V1 serialization boundary. Every financially authoritative writer acquires organization, membership, then source/evidence locks in that order; database insert triggers also acquire the tenant lock. This deliberately serializes financial work within a tenant. It is simpler and safer for V1 than optimistic mixed reads, and does not introduce distributed infrastructure.
+
+1. Lock the tenant and recheck/lock the actor's current membership.
+2. Read one current revision set, including pending material reviews, governing packet and association.
+3. Require the caller's complete expected revision set to match. Old clients receive `409 STALE_INPUT`.
+4. Select and evaluate approved financial meanings; unresolved/revoked inputs produce null outcomes.
+5. Re-read and compare the entire fenced revision set, verify evidence hashes and share-lock referenced Documents.
+6. Insert the immutable evaluation and its trigger-generated audit event, then commit while retaining all locks.
+
+A concurrent approval/revocation/packet revision either commits first and makes the expected set stale, or waits until the evaluation commits. It never supplies half of an evaluation. Transaction failures roll back both evaluation and audit. Duplicate simultaneous requests serialize and share a unique `(organization, fingerprint)` result. No request timestamp or random evaluation UUID enters the fingerprint.
+
+The snapshot includes the complete fenced context and identifies calculation-driving revision IDs separately. The semantic fingerprint includes tenant, stable invoice/scope identity, relevant approval revisions, source hashes/lineage, governing packet/association/reference, pricing/applicability/rounding/credit decisions, affected overlap/parent/sibling guards, and immutable compiler/rule/schema versions. Canonical JSON and sorted revision sets remove database/dictionary order. Null differs from zero. Disjoint invoice lines/contractual subjects and cosmetic filename changes do not reopen a dismissed finding. Relevant formal revisions or overlap changes produce a new evaluation. Staleness is derived from the same semantic input selection; monetary history is never updated.
+
+## Audit and database integrity
+
+Existing structured `financial_leakage` logging is reused for safe IDs, versions, outcome and duration; document quotations, financial source text, credentials and tokens are excluded from logs. Existing extraction-run lineage remains the extraction audit architecture. Since the prior application had no general durable financial-action journal, `FinancialAudit` adds the missing transactional history rather than adding a second logger.
+
+PostgreSQL AFTER INSERT triggers journal every review decision, evaluation and finding decision with actor, time, target, predecessor/revision, reason, request/fingerprint and role at action time. Audit creation shares the authoritative transaction. Audit-origin triggers reject forged direct journal inserts; immutable triggers reject update/delete of revisions, evidence, evaluations, decisions and audit records. Owner/admin status decisions use existing `detected`, `confirmed`, `false_positive`, `needs_review` meanings, with separate immutable decisions and no monetary edit endpoint. No Recovery Ledger fields or recovery statuses are introduced.
+
+Migration 0004 includes normalized composite tenant-safe foreign keys, exact NUMERIC outputs, request/revision/fingerprint uniqueness, checks and triggers. It preserves existing tables/data and refuses downgrade when Phase 4 records would be lost. Empty disposable databases support downgrade/reupgrade and full schema-drift checks. Administrative DDL privileges are outside application guarantees; production roles must not have trigger-disabling/schema-owner privileges.
+
+## APIs and enterprise UI
+
+All endpoints are below `/api/v1/organizations/{organization_id}/financial` with current tenant membership. Sources, latest review context, paginated history, audit, compilation, immutable evaluation detail and paginated register are protected reads. Source creation/review preparation allow analyst; final review/evaluation/finding decisions require owner/admin. Review writes require UUID Idempotency-Key; key reuse with different actor/body/target conflicts. Evaluation idempotency is semantic and does not depend on transport request keys. Expected predecessor IDs prevent stale review/status overwrites.
+
+The Next.js proxy permits only explicit routes, forwards only the server access token, checks mutation origin, bounds JSON review payloads to 1 MiB, and strips response cookies. No browser-supplied organization role or bearer credential grants access.
+
+Overview shows current undismissed, non-overlapping potential by currency, blocked/assessed/stale counts and explicit coverage. Rule-bundle groupings are independent aggregate views, not new findings. Undercharges are not netted. The register presents reason, expected/billed amount, unit-price/quantity comparison when supported, status and evidence action. Details expose formulas, approved meanings, packet, amendments, actor/time, source locations/hashes, candidate versus reviewed values, and versioned audit inputs. There is no full Proof Engine.
+
+The review UI prepares terms, billed scopes, references, governing packets and associations, then exposes owner/admin approval/withdrawal/revocation and assessment. It supports single-line percentage-base authoring and one explicitly allocated credit per prepared scope; richer base groups, complete rounding alternative sets and multiple adjustments are available through the typed API. Source selectors list the first 100 documents/sources with an explicit notice; register/history/audit APIs paginate (maximum page 100). Summary covers at most the most recent 1,000 evaluations and declares limitation. Current-only filtering on the register API is applied within each requested page, with coverage metadata. These are V1 bounds, not claims of complete enterprise population coverage.
+
+## Deferred scope
+
+No Proof Engine, Recovery Ledger, recovery automation, Firewall, pre-contract simulation, Leakage DNA, forecast/quantity-overbilling, SaaS discovery, FX, legal/tax interpretation, OCR expansion, or distributed queue/microservice infrastructure is implemented. Production OIDC provisioning, deployment, storage hardening and operating controls remain separately required. No automatic merge or later phase is authorized by this implementation.

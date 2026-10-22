@@ -1,0 +1,35 @@
+# Phase 6 V1 Recovery Ledger implementation architecture
+
+Starting main: `15c7fc34d4d0092613dc2379f63d606594feebab`.
+Branch: `phase6/recovery-ledger-implementation`.
+The user authorized implementation on 3 October 2026. The approved [version 1.0 specification](phase6-recovery-ledger-spec.md) remains the business authority; this document selects technical structures, not additional product policy.
+
+## Identity and history
+
+`RecoveryCase` uniquely anchors an organization and immutable `FinancialEvaluation`. No extraction run, proof revision or legacy `LeakageCase.recovered_amount` becomes recovery identity or money. Stable tenant-wide `RecoveryInstrument` identities and reviewed aliases represent economic instruments independently of uploaded documents. One instrument cannot finance multiple findings in V1. Bundled observations retain related case references without allocations.
+
+Manual evidence is represented by immutable source bindings to protected `Document` records, with original SHA-256, size, media type, locator, source quotation and supported reviewed fields. Reviewed proposals pin these bindings and material authority predecessors. Approval creates append-only records with typed exact monetary components, dates and instrument/original-allocation relationships. Workflow records contain no financial authority. Corrections/reversals append signed allocations; bank performance and attribution corrections remain distinct. No writable recovered-total field is introduced.
+
+## Authority and transaction order
+
+All commands use PostgreSQL transaction-scoped tenant admission slots before waiting on the existing organization lock. They then fence fresh membership through commit, preserving the existing organization → membership → source lock order shared with Phases 4/5. New final authority requires owner/admin. Actor rolling quotas are shared across tenants and workers using advisory locks and committed request records.
+
+Readiness pins the actual confirmed decision, evaluation fingerprint, exact COMPLETE monetary proof/fingerprint, approved party association, tax-exclusive pursuit basis, source quantum and case authority head. COMPLETE is technical proof completeness; export and optional human proof review are not prerequisites. Current false-positive decisions forbid new ordinary cases. Stale, dismissed, unavailable-source, closed and overlapping successor states block new positive authority without deleting history.
+
+R01–R10 are evaluated together under the organization fence. Actual source bytes are bounded and hashed before approval and rechecked immediately before commit; this is consistent byte capture, not a filesystem transaction claim. Request identity, semantic instrument/event identity, original reversal budgets and remaining case/instrument budgets are enforced together. A losing race returns a conflict/retry; amounts are never truncated to fit a budget. Financial rows and trusted trigger-origin `FinancialAudit` records commit atomically. PostgreSQL guards prevent direct modification/deletion and invalid financial authority insertion; composite foreign keys enforce tenant relationships.
+
+## Economic meaning and time
+
+Money uses finite Decimal strings and NUMERIC(20,6), context precision 80, with explicit source quantum. Principal, tax, gross performance, fees, withholding, net cash and other consideration are distinct. Only evidenced compatible tax-exclusive principal enters R; tax recoverability is not assessed. Costs have separate incurred/paid history and currency. Credits require issuance/reconciliation observations and actual application or cash redemption; consumption shares one root budget. No FX, automatic cap, forecast, annualized value, avoided monetary leakage or gain-share fields exist.
+
+Economic date precision (date, exact instant, local timestamp and evidenced timezone) is separate from immutable server known-at time. RecoveryPublication persists actual PostgreSQL transaction commit timestamps after financial commit, with a database equality guard against caller backdating. An insertion timestamp is only recorded_at, never K. PostgreSQL 17 must start with track_commit_timestamp=on; missing/off/vacuumed uncaptured provenance fails closed. Post-commit capture is independently retryable and never mislabels an already committed financial action as failure. Durable captured receipts are ordinary protected metadata, not a legal retention promise. Reports use declared `[start,end)` periods and K/high-watermark/profile, with correction restatements rather than mutation. An ambiguous boundary yields unresolved attribution. Current eligibility observations are retained; missing historical support is UNKNOWN. Complete bounded populations produce separate currency/entity/tax-compatible measures and explicit exception categories, never a total based on a page.
+
+## Integration and presentation boundaries
+
+Internal APIs expose explicit case creation, proposal preparation, final approvals, workflow/lifecycle, evidence review, instruments, history and bounded reporting. They do not invoke evaluation, finding decisions, proof generation/review/repair/successors or extraction. Existing upload/storage, source-byte verification and FinancialAudit are reused. The frontend uses authenticated no-store server proxy routes, separates proposals from approved money, renders blockers and independent axes, and masks routine private account presentation. No recovery export, vendor communication, connector, journal posting or external delivery is introduced.
+
+## Operational profile and verification plan
+
+The `recovery-operations/1` profile maps specification section 32 to JSON bytes 1 MiB; text 4,000 characters; original documents 50; bindings 500; cumulative source reads 100 MiB; synchronous work 25 seconds; response/report 10 MiB; history page 100; complete projection 10,000 records; tenant concurrency 2; actor new-authority quota 10/minute. Limits produce explicit resource outcomes and never truncate authoritative evidence or totals. The [validation report](phase6-validation.md) maps every setting to enforcement and automated tests; [traceability](phase6-traceability.md) maps all approved requirements. One cumulative Budget covers all sources/bindings/reads and SQL/lock waits, including ORM flushes. Actor quota uses database clock time across tenants/workers. Read paths verify enabled shared audit/source guards and trusted history origins. Conflicting physical receipt dates and materially unknown credit stock remain explicitly unresolved instead of a partial authoritative total.
+
+Verification covers database immutability/audit/delete/downgrade guards, actual-source tampering, role revocation, tenant attacks, exact arithmetic, temporal precision, instrument aliases, credit/reversal budgets, independent PostgreSQL transactions and shared limits. Individual PD6-01–37, I01–22, R01–10, RW-01–56 and AC-01–50 mappings must identify concrete assertions and enforcement layers. Phases 4/5 specifications remain byte-identical. No production deployment or legal/accounting/tax compliance is claimed.

@@ -1,0 +1,48 @@
+# Contract only: run in an isolated staging environment after separate authorization.
+# External managed DB/private store/IdP/scanner are not provisioned here.
+services:
+  migration:
+    image: ${BACKEND_IMAGE:?Provide an immutable backend image digest}
+    command: [migrate]
+    env_file: ${MIGRATION_ENV_FILE:?Provide protected migration settings}
+    read_only: true
+    tmpfs: [/tmp:size=16m,mode=1777]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [runtime]
+    restart: "no"
+  api:
+    image: ${BACKEND_IMAGE:?Provide an immutable backend image digest}
+    command: [serve]
+    env_file: ${BACKEND_ENV_FILE:?Provide protected least-privilege application settings}
+    read_only: true
+    tmpfs: [/tmp:size=192m,mode=1777]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    expose: ["8000"]
+    stop_grace_period: 40s
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://api:8000/api/v1/health/ready', timeout=5)"]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 30s
+    networks: [runtime]
+  web:
+    image: ${FRONTEND_IMAGE:?Provide an immutable frontend image digest}
+    env_file: ${FRONTEND_ENV_FILE:?Provide protected frontend-only OIDC settings}
+    read_only: true
+    tmpfs: [/tmp:size=16m,mode=1777]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports: [127.0.0.1:3000:3000]
+    stop_grace_period: 40s
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [runtime]
+networks:
+  runtime: {}

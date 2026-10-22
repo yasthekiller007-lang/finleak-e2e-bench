@@ -1,0 +1,19 @@
+{
+  "repository": "OWNER/EXISTING-PRIVATE-BENCH",
+  "owner": "OWNER",
+  "visibility": "private",
+  "verified_at_utc": null,
+  "standard_runner_allowed": false,
+  "usage_blocked": true,
+  "minutes_remaining": 1000,
+  "storage_remaining_mb": null,
+  "actions_spending_limit_usd": 0,
+  "extra_charge_prevention_verified": false,
+  "all_applicable_budgets_reviewed": false,
+  "first_cycle_and_update_delay_caveats_resolved": false,
+  "concurrent_usage_reviewed": false,
+  "redacted_authenticated_export_sha256": null,
+  "authorized_actor": null,
+  "reported_ui_label": "Usage blocked",
+  "reported_ui_label_scope": "NOT VERIFIED; do not infer included-job availability"
+}

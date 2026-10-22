@@ -1,0 +1,38 @@
+{
+  "postgres": {
+    "tag_for_provenance": "17.11-bookworm",
+    "registry": "registry-1.docker.io/library/postgres",
+    "index_digest": "sha256:858bb5e98eed02eb8cafbcdc007f9a65d1b613972028944a8ec2133ccaf80d27",
+    "manifest_digest": "sha256:ec4dfc6571f04fe0731ce948c1500d676af49a7224392dcc6995cc1ee33a94bb",
+    "config_digest": "sha256:e4bdd2f9eeabc0f516e1fa42c4acea97ae571f20877982ac082921b205a52618",
+    "platform": "linux/amd64",
+    "layers_executed": false,
+    "resolved_utc": "2026-10-22",
+    "compressed_layers_bytes": 156194222
+  },
+  "python": "3.12.15",
+  "node": "24.21.0",
+  "uv": "0.12.19",
+  "playwright": "1.63.0",
+  "product_v23_commit": "951c4a13d5f4bef37ae694e44e680a4bdf816d19",
+  "product_v23_archive_sha256": "bf7f05fe0720dcce9dd3d3d553a95a5ec9f56ee3d93b4861f2e03bd4c29aebc8",
+  "locks": {
+    "backend/uv.lock": "d5410eba325ff30085c8ceb0a8174651383d7f23391b97a9ece66ba5ac31c8be",
+    "frontend/package-lock.json": "7c909f33af043348c5bc3aa5dafbf66297c3dbf84e1fa484bfbea72c5a073c70"
+  },
+  "trust_limit": "Registry descriptor bytes and config verified over TLS. No image execution, layer scan, build provenance signature, browser native binary or future runner qualification in preparation.",
+  "playwright_browsers_json_sha256": "545d52f8382c391e605562c330e9c1c534a16045898203037a49bb8bd769a946",
+  "runtime_download_provenance": {
+    "node_source": "https://nodejs.org/dist/v24.21.0/SHASUMS256.txt",
+    "node_linux_x64_tar_gz_sha256": "6e1db87ef58b8819e5d5402eff1536491b18edd8eb7bee5ef7897876e88dc5ff",
+    "python_actions_manifest_entry_sha256": "0eb56a959848fe545f76fac74b92153ec7f2391a168bdac12d4079ce5d87037d",
+    "python_build": {
+      "filename": "python-3.12.15-linux-24.04-x64.tar.gz",
+      "arch": "x64",
+      "platform": "linux",
+      "platform_version": "24.04",
+      "download_url": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz"
+    },
+    "limit": "Availability and publisher metadata verified; no native runtime was installed or executed from these future-job downloads during preparation."
+  }
+}

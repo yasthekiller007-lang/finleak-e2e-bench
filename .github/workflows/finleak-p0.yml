@@ -1,0 +1,84 @@
+# Candidate only: stored outside .github/workflows in the product repository.
+# prepare_repository.py creates the separately reviewed private bench payload.
+name: FINLEAK P0 synthetic OIDC PostgreSQL acceptance
+on:
+  workflow_dispatch:
+    inputs:
+      authorization:
+        description: "Separate one-run approval: FINLEAK-P0-ONE-RUN"
+        required: true
+        type: string
+      expected_commit:
+        description: "Exact 40-character reviewed bench repository commit"
+        required: true
+        type: string
+      billing_evidence_sha256:
+        description: "SHA-256 of the freshly reviewed root billing-evidence.json"
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: finleak-p0-single-run
+  cancel-in-progress: false
+jobs:
+  synthetic-acceptance:
+    if: github.event_name == 'workflow_dispatch' && inputs.authorization == 'FINLEAK-P0-ONE-RUN'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      P0_AUTHORIZATION: ${{ inputs.authorization }}
+      P0_EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+      P0_BILLING_SHA256: ${{ inputs.billing_evidence_sha256 }}
+      UV_PYTHON_DOWNLOADS: never
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Start the single job deadline
+        shell: bash
+        env:
+          P0_KIND: ${{ runner.environment }}
+          P0_BROWSER_CACHE: ${{ runner.temp }}/finleak-p0-browsers
+        run: |
+          echo "P0_JOB_STARTED_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+          echo "P0_RUNNER_KIND=$P0_KIND" >> "$GITHUB_ENV"
+          echo "PLAYWRIGHT_BROWSERS_PATH=$P0_BROWSER_CACHE" >> "$GITHUB_ENV"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Fail closed on authorization, billing review and standard-runner resources
+        working-directory: product
+        run: python3 bench/p0/gate.py
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12.15"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24.21.0"
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.12.19"
+          enable-cache: false
+      - name: Install the exact locked backend and frontend dependencies
+        working-directory: product
+        timeout-minutes: 3
+        run: |
+          timeout 75s uv sync --project backend --locked --python 3.12.15
+          timeout 75s npm ci --prefix frontend --ignore-scripts --no-audit --no-fund
+          test "$(node --version)" = v24.21.0
+          test "$(backend/.venv/bin/python -c 'import platform;print(platform.python_version())')" = 3.12.15
+      - name: Install only the pinned Playwright Chromium headless browser, no host packages
+        working-directory: product/frontend
+        timeout-minutes: 2
+        run: timeout 75s node node_modules/@playwright/test/cli.js install chromium --only-shell
+      - name: Execute the bounded real-service development scenario once
+        working-directory: product
+        timeout-minutes: 5
+        run: backend/.venv/bin/python bench/p0/runtime.py run
+      - name: Emit only sanitized hash-verifiable evidence; never upload storage artifacts
+        if: always()
+        working-directory: product
+        run: |
+          python3 bench/p0/runtime.py cleanup
+          python3 bench/p0/emit_evidence.py
