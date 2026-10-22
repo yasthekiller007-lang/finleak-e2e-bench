@@ -1,5 +1,17 @@
 # FINLEAK P0 — executable development acceptance candidate
 
+## P0-D1 current addendum
+
+The first real run `39851915526` at `e77169a19859716fb9c93d087d258f746dd1f726`
+failed at the synthetic fixture (exit 2), before browser E2E. Migrations completed
+on the disposable database only. D1 adds a closed, validated diagnostic protocol
+and one explicitly hash-pinned fixture source overlay; see `DIAGNOSTICS-D1.md`.
+It changes no financial rule or execution/billing authorization. No second run
+is authorized by this branch. The original preparation narrative below is retained
+as historical context and is not a current statement of account/run availability.
+
+## Historical P0 preparation record
+
 Status: preparation delivered; **first GitHub Actions execution BLOCKED**.
 The user reports 1,000 remaining minutes but an Actions $0 budget with `Usage blocked`.
 The scope of that UI label (paid overages versus the proposed included job) is

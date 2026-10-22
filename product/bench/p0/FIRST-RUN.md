@@ -1,5 +1,13 @@
 # First execution — precise review and authorization boundary
 
+**P0-D1 addendum:** the first run already occurred as `39851915526` (FAIL before
+E2E). Its post-run balance was 995 minutes with $0 displayed and the $0 blocking
+budget retained. These are historical observations, not a new billing assessment.
+This branch only remediates diagnostics. A second run, any default-branch merge,
+and the new immutable candidate SHA require separate review/authorization; see
+`DIAGNOSTICS-D1.md`. The original first-run preparation instructions below remain
+historical. Do not dispatch, rerun, modify budgets or reuse stale gate evidence.
+
 **Do not dispatch now.** The scope of the reported `Usage blocked` label is unverified,
 so admission remains blocked. Distinguish blocked chargeable overages from an
 actual prohibition on the proposed included-quota job. Neither interpretation is

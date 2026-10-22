@@ -12,17 +12,17 @@ import os
 from pathlib import Path
 from uuid import UUID, uuid4
 
+from acceptance.p0_diagnostics import detail
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from sqlalchemy import create_engine, func, select, text
-from sqlalchemy.engine import make_url
-from sqlalchemy.orm import Session
-
 from app.auth.oidc import provider_json
 from app.db.models import Document, Organization, OrganizationMembership, User, UserIdentity
 from app.domain.types import DocumentType, ProcessingStatus
 from app.financial.models import FinancialAudit, FinancialEvaluation, FinancialFindingDecision
 from app.modules.storage import LocalObjectStorage, document_storage_key
+from sqlalchemy import create_engine, func, select, text
+from sqlalchemy.engine import make_url
+from sqlalchemy.orm import Session
 from tests.financial_fixtures import bill, packet, term
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -85,7 +85,12 @@ def guard():
     ):
         missing.append("explicit_synthetic_development_authorization")
     if missing:
-        return {"status": "BLOCKED", "missing": missing, "e2e": "NOT_EXECUTED"}
+        return {
+            "status": "BLOCKED",
+            "missing": missing,
+            "e2e": "NOT_EXECUTED",
+            "diagnostic": detail("MISSING_TEST_PRECONDITION", "parameters"),
+        }
     try:
         url = make_url(os.environ["FLA_DATABASE_URL"])
         from urllib.parse import urlsplit
@@ -113,6 +118,7 @@ def guard():
             "status": "BLOCKED",
             "missing": ["dedicated_loopback_database_and_test_issuer_configuration"],
             "e2e": "NOT_EXECUTED",
+            "diagnostic": detail("INVALID_LOOPBACK_CONFIGURATION", "parameters"),
         }
     return None
 
@@ -129,12 +135,19 @@ def preflight():
     blocked = guard()
     if blocked:
         return blocked
-    db = engine()
+    db = None
+    phase = "postgres_preflight"
     try:
+        db = engine()
         with db.connect() as connection:
             version = int(connection.scalar(text("SHOW server_version_num")))
             if not 170000 <= version < 180000:
-                return {"status": "BLOCKED", "missing": ["PostgreSQL_17"], "e2e": "NOT_EXECUTED"}
+                return {
+                    "status": "BLOCKED",
+                    "missing": ["PostgreSQL_17"],
+                    "e2e": "NOT_EXECUTED",
+                    "diagnostic": detail("POSTGRES_VERSION_MISMATCH", phase),
+                }
             elevated = connection.scalar(
                 text(
                     "SELECT rolsuper OR rolcreaterole OR rolcreatedb "
@@ -146,7 +159,9 @@ def preflight():
                     "status": "BLOCKED",
                     "missing": ["non_privileged_fixture_role"],
                     "e2e": "NOT_EXECUTED",
+                    "diagnostic": detail("POSTGRES_ROLE_REJECTED", phase),
                 }
+            phase = "alembic"
             head = ScriptDirectory.from_config(
                 Config(str(BACKEND / "alembic.ini"))
             ).get_current_head()
@@ -155,7 +170,9 @@ def preflight():
                     "status": "BLOCKED",
                     "missing": ["existing_migrations_at_head"],
                     "e2e": "NOT_EXECUTED",
+                    "diagnostic": detail("ALEMBIC_HEAD_MISMATCH", phase),
                 }
+        phase = "oidc_discovery"
         issuer = os.environ["OIDC_ISSUER_URL"]
         metadata = provider_json(issuer.rstrip("/") + "/.well-known/openid-configuration", False)
         if (
@@ -167,6 +184,7 @@ def preflight():
                 "status": "BLOCKED",
                 "missing": ["test_OIDC_discovery_PKCE_RS256"],
                 "e2e": "NOT_EXECUTED",
+                "diagnostic": detail("OIDC_DISCOVERY_REJECTED", phase),
             }
         # Discovery reachability is not authentication.
         # The browser and backend must still validate tokens.
@@ -182,24 +200,39 @@ def preflight():
             "status": "BLOCKED",
             "missing": ["database_or_test_issuer_preflight"],
             "e2e": "NOT_EXECUTED",
+            "diagnostic": detail(
+                {
+                    "postgres_preflight": "DATABASE_PREFLIGHT_ERROR",
+                    "alembic": "ALEMBIC_PREFLIGHT_ERROR",
+                    "oidc_discovery": "OIDC_DISCOVERY_ERROR",
+                }[phase],
+                phase,
+            ),
         }
     finally:
-        db.dispose()
+        if db is not None:
+            db.dispose()
 
 
 def seed():
     result = preflight()
     if result["status"] != "PREFLIGHT_ONLY":
         return result
-    db = engine()
+    db = None
+    phase = "postgres_preflight"
     try:
+        db = engine()
+        phase = "fixture_directory"
         if (DIRECTORY / "roster.json").exists():
             return {
                 "status": "BLOCKED",
                 "missing": ["fresh_disposable_fixture_directory"],
                 "e2e": "NOT_EXECUTED",
+                "diagnostic": detail("FIXTURE_DIRECTORY_NOT_FRESH", phase),
             }
+        phase = "storage_initialization"
         storage = LocalObjectStorage(DIRECTORY / "originals")
+        phase = "test_database"
         with Session(db) as session, session.begin():
             if session.scalar(select(func.count()).select_from(Organization)) or session.scalar(
                 select(func.count()).select_from(User)
@@ -208,7 +241,9 @@ def seed():
                     "status": "BLOCKED",
                     "missing": ["empty_dedicated_test_database"],
                     "e2e": "NOT_EXECUTED",
+                    "diagnostic": detail("TEST_DATABASE_NOT_EMPTY", phase),
                 }
+            phase = "synthetic_identities"
             company, other = (
                 Organization(name="DEMO Product V1.1 Industries"),
                 Organization(name="DEMO Inaccessible Tenant"),
@@ -231,6 +266,7 @@ def seed():
                 session.add(
                     OrganizationMembership(organization_id=company.id, user_id=user.id, role=role)
                 )
+            phase = "synthetic_documents"
             docs = {}
             ids, originals, t, b, governing = source_material()
             for kind, data in originals.items():
@@ -267,6 +303,8 @@ def seed():
                 "import_validation": "NOT_EXECUTED",
                 "scanner": "BLOCKED",
             }
+            phase = "fixture_transaction"
+        phase = "fixture_roster"
         DIRECTORY.mkdir(parents=True, exist_ok=True)
         (DIRECTORY / "roster.json").write_text(json.dumps(roster, indent=2) + "\n")
         return {
@@ -275,8 +313,28 @@ def seed():
             "roster": str(DIRECTORY / "roster.json"),
             "e2e": "NOT_EXECUTED",
         }
+    except AssertionError:
+        return {
+            "status": "FAIL",
+            "check": "persisted_financial_invariants",
+            "e2e": "NOT_EXECUTED",
+            "diagnostic": detail("FIXTURE_INVARIANT_FAILED", phase),
+        }
+    except Exception:
+        return {
+            "status": "BLOCKED",
+            "missing": ["fixture_or_witness_verification_failed"],
+            "e2e": "NOT_EXECUTED",
+            "diagnostic": detail(
+                "DATABASE_PREFLIGHT_ERROR"
+                if phase == "postgres_preflight"
+                else "FIXTURE_PERSISTENCE_ERROR",
+                phase,
+            ),
+        }
     finally:
-        db.dispose()
+        if db is not None:
+            db.dispose()
 
 
 def witness(evaluation_id, decision_id):
@@ -362,12 +420,18 @@ def main():
                 "e2e": "NOT_EXECUTED",
             }
     except AssertionError:
-        result = {"status": "FAIL", "check": "persisted_financial_invariants"}
+        result = {
+            "status": "FAIL",
+            "check": "persisted_financial_invariants",
+            "e2e": "NOT_EXECUTED",
+            "diagnostic": detail("FIXTURE_INVARIANT_FAILED", "fixture_or_witness"),
+        }
     except Exception:
         result = {
             "status": "BLOCKED",
             "missing": ["fixture_or_witness_verification_failed"],
             "e2e": "NOT_EXECUTED",
+            "diagnostic": detail("UNEXPECTED_INTERNAL_EXCEPTION", "fixture_or_witness"),
         }
     print(json.dumps(result, indent=2))
     return 2 if result["status"] == "BLOCKED" else 1 if result["status"] == "FAIL" else 0

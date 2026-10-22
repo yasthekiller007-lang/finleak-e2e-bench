@@ -6,12 +6,22 @@ import os
 import platform
 import re
 import shutil
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
 class Blocked(Exception):
     pass
+
+
+# One explicit D1 diagnostic-only overlay. The historical manifest stays frozen.
+# Both the original manifest entry and the reviewed replacement must match.
+DIAGNOSTIC_SOURCE_OVERLAY = {
+    "backend/acceptance/product_v11.py": (
+        "6bffe94465331275a46bc43c403dcef7fc486d63b243c14b7d524cdc598a544d",
+        "377dee5a42b75223f5da91e76937ec96ad7371b6ea5e949bb8aae6dbfd426072",
+    ),
+}
 
 
 def validate_billing(value, repository, now):
@@ -76,7 +86,7 @@ def execution_gate(root):
     validate_billing(
         evidence,
         os.environ.get("GITHUB_REPOSITORY", ""),
-        datetime.now(timezone.utc),
+        datetime.now(UTC),
     )
     verify_source(root)
 
@@ -84,6 +94,11 @@ def execution_gate(root):
 def verify_source(root):
     for line in (root / "bench/p0/v23-source.sha256").read_text().splitlines():
         digest, name = line.split("  ", 1)
+        if name in DIAGNOSTIC_SOURCE_OVERLAY:
+            original, replacement = DIAGNOSTIC_SOURCE_OVERLAY[name]
+            if digest != original:
+                raise Blocked("Diagnostic overlay base source integrity check failed")
+            digest = replacement
         path = root / name
         if (
             path.is_symlink()

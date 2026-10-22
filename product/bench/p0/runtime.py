@@ -1,4 +1,4 @@
-"""Bounded ephemeral service orchestration. No authorized service execution in the preparation mission."""
+"""Bounded ephemeral services; execution always requires the separate manual gate."""
 
 import base64
 import hashlib
@@ -19,12 +19,30 @@ from urllib.parse import quote, urlunsplit
 from gate import Blocked, execution_gate, resources
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "backend"))
+from acceptance.p0_diagnostics import (  # noqa: E402
+    SEED_STAGE,
+    public_diagnostic,
+    seed_outcome,
+    validate_result_diagnostic,
+)
+
 PRIVATE = ROOT / ".local/p0-private"
 EVIDENCE = ROOT / ".local/p0-evidence"
 PYTHON = ROOT / "backend/.venv/bin/python"
 DB_NAME = "finleak_product_v11_test"
 CONTAINER = "finleak-p0-postgres"
-PG_IMAGE = "docker.io/library/postgres@sha256:ec4dfc6571f04fe0731ce948c1500d676af49a7224392dcc6995cc1ee33a94bb"
+PG_IMAGE = (
+    "docker.io/library/postgres@"
+    "sha256:ec4dfc6571f04fe0731ce948c1500d676af49a7224392dcc6995cc1ee33a94bb"
+)
+
+
+class SeedFailure(Exception):
+    def __init__(self, status, diagnostic):
+        super().__init__("Synthetic fixture did not complete")
+        self.status = status
+        self.diagnostic = diagnostic
 
 
 def database_url(user, password):
@@ -278,9 +296,9 @@ def execute():
             available = (
                 int(
                     next(
-                        l.split()[1]
-                        for l in Path("/proc/meminfo").read_text().splitlines()
-                        if l.startswith("MemAvailable:")
+                        line.split()[1]
+                        for line in Path("/proc/meminfo").read_text().splitlines()
+                        if line.startswith("MemAvailable:")
                     )
                 )
                 * 1024
@@ -289,15 +307,32 @@ def execute():
                 raise Blocked(
                     "Resource reserve exhausted; no runner resizing permitted"
                 )
-            done = subprocess.run(
-                command,
-                cwd=cwd,
-                env={**env, **(extra_env or {})},
-                input=input_,
-                capture_output=True,
-                timeout=remaining,
-                check=False,
-            )
+            try:
+                done = subprocess.run(
+                    command,
+                    cwd=cwd,
+                    env={**env, **(extra_env or {})},
+                    input=input_,
+                    capture_output=True,
+                    timeout=remaining,
+                    check=False,
+                )
+            except (subprocess.TimeoutExpired, OSError) as error:
+                if label != SEED_STAGE:
+                    raise
+                result["steps"].append(
+                    {
+                        "stage": label,
+                        "exit_code": None,
+                        "seconds": round(time.monotonic() - current, 3),
+                    }
+                )
+                status, diagnostic = seed_outcome(
+                    None,
+                    timeout=isinstance(error, subprocess.TimeoutExpired),
+                    unavailable=isinstance(error, OSError),
+                )
+                raise SeedFailure(status, diagnostic) from None
             result["steps"].append(
                 {
                     "stage": label,
@@ -305,6 +340,11 @@ def execute():
                     "seconds": round(time.monotonic() - current, 3),
                 }
             )
+            if label == SEED_STAGE:
+                status, diagnostic = seed_outcome(done.returncode, done.stdout)
+                result["fixture_diagnostic"] = diagnostic
+                if status != "FIXTURE_ONLY":
+                    raise SeedFailure(status, diagnostic)
             if done.returncode:
                 raise RuntimeError("Candidate stage failed")
             return done.stdout
@@ -334,7 +374,10 @@ def execute():
         result["browser_bytes"] = {
             "catalog_sha256": catalog_digest,
             "executable_sha256": binary_digest,
-            "trust": "Locked Playwright revision and vendor TLS download; native bytes captured for independent review",
+            "trust": (
+                "Locked Playwright revision and vendor TLS download; "
+                "native bytes captured for independent review"
+            ),
         }
         stage = "standard_runner_docker_capability"
         docker = subprocess.run(
@@ -346,7 +389,8 @@ def execute():
         )
         if docker.returncode:
             raise Blocked(
-                "Existing standard-runner Docker engine unavailable; no installation or privilege fallback"
+                "Existing standard-runner Docker engine unavailable; "
+                "no installation or privilege fallback"
             )
         result["docker_server_version"] = docker.stdout.decode().strip()
         run(
@@ -439,8 +483,10 @@ def execute():
         else:
             raise Blocked("PostgreSQL did not become ready")
         sql = (
-            f"CREATE ROLE finleak_p0 LOGIN PASSWORD '{db_password}' NOSUPERUSER NOCREATEDB NOCREATEROLE;\n"
-            f"CREATE ROLE p0_migrator LOGIN PASSWORD '{migration_password}' NOSUPERUSER NOCREATEDB NOCREATEROLE;\n"
+            f"CREATE ROLE finleak_p0 LOGIN PASSWORD '{db_password}' "
+            "NOSUPERUSER NOCREATEDB NOCREATEROLE;\n"
+            f"CREATE ROLE p0_migrator LOGIN PASSWORD '{migration_password}' "
+            "NOSUPERUSER NOCREATEDB NOCREATEROLE;\n"
             f"CREATE DATABASE {DB_NAME} OWNER p0_migrator;\n"
         ).encode()
         run(
@@ -560,6 +606,14 @@ def execute():
         assert receipt["counts"]["authenticated_grants"] >= 3
         assert receipt["counts"]["jwks"] >= 1
         result["oidc"] = receipt
+    except SeedFailure as error:
+        result.update(
+            status=error.status,
+            stage=SEED_STAGE,
+            reason=error.diagnostic["reason_code"],
+            fixture_diagnostic=error.diagnostic,
+            e2e_executed=False,
+        )
     except Blocked as error:
         result.update(status="BLOCKED", stage=stage, reason=str(error))
     except subprocess.TimeoutExpired:
@@ -589,6 +643,17 @@ def execute():
         except (OSError, ValueError, KeyError, subprocess.SubprocessError):
             result["cleanup"] = "FAILED_OR_INTERRUPTED"
             result["status"] = "FAIL"
+        try:
+            validate_result_diagnostic(result)
+        except (ValueError, TypeError):
+            result.update(
+                status="FAIL",
+                e2e_executed=False,
+                reason="DIAGNOSTIC_UNAVAILABLE",
+                fixture_diagnostic=public_diagnostic(
+                    None, "UNAVAILABLE", "DIAGNOSTIC_UNAVAILABLE", "fixture_process"
+                ),
+            )
         write(EVIDENCE / "result.json", result)
         payload = (EVIDENCE / "result.json").read_bytes()
         print("FINLEAK_P0_RESULT_SHA256=" + hashlib.sha256(payload).hexdigest())
