@@ -1,0 +1,151 @@
+{
+  "profile": "finleak-third-run-authenticated-admission-review/1",
+  "verified_at_utc": "2026-10-23T03:52:03.253Z",
+  "reviewed_candidate": "243e064be23cfd0c958ec39217c92676a6770a21",
+  "branch": "fix/p0-d2-attributed-fixture",
+  "scope": "Preparation only. No dispatch, rerun, billing change, permission change or main modification.",
+  "authentication": {
+    "github_connector_login": "yasthekiller007-lang",
+    "billing_ui_account": "yasthekiller007-lang",
+    "owner_type": "personal",
+    "billed_repository_owner": "yasthekiller007-lang",
+    "repository": "yasthekiller007-lang/finleak-e2e-bench",
+    "private": true,
+    "permission": "admin"
+  },
+  "observed": [
+    {
+      "id": "billing-overview",
+      "source": "https://github.com/settings/billing",
+      "date_utc": "2026-10-23",
+      "authenticated": true,
+      "values": {
+        "plan": "GitHub Pro",
+        "cycle": "2026-10-01 through 2026-10-31",
+        "minutes_used_display": 2006,
+        "minutes_included_display": 3000,
+        "minutes_remaining_calculated_from_display": 994,
+        "storage_display": "0 GB used / 2 GB included",
+        "actions_billable_usage_display_usd": 0,
+        "gross_metered_display_usd": 12.04,
+        "included_discounts_display_usd": 12.04
+      },
+      "reliability": "Authenticated current UI observations after reload. Minutes balance is arithmetic on displayed integers, not a reservation. Storage is rounded; no exact byte or MB balance established. Repository breakdown returned Something went wrong; totals and quota fields loaded."
+    },
+    {
+      "id": "actions-budget",
+      "source": "https://github.com/settings/billing/budgets/526ec831-b44c-4142-b015-4c851e45bfca/edit",
+      "date_utc": "2026-10-23",
+      "authenticated": true,
+      "values": {
+        "product": "Actions",
+        "scope": "Account: all repositories owned by yasthekiller007-lang",
+        "amount_usd": 0,
+        "stop_usage_when_budget_limit_reached": true,
+        "ui_text": "Spending won't exceed your set budget",
+        "payment_banner": "Payment method is missing"
+      },
+      "reliability": "Amount and checked state observed after reload. No field edited; no Update budget or Add payment method action."
+    },
+    {
+      "id": "budget-list",
+      "source": "https://github.com/settings/billing/budgets",
+      "date_utc": "2026-10-23",
+      "authenticated": true,
+      "values": {
+        "rows": 5,
+        "actions_rows": 1,
+        "actions_spent_display_usd": 0,
+        "actions_budget_display_usd": 0,
+        "actions_status": "Usage blocked",
+        "other_account_budgets_display": "Codespaces, Packages, Git LFS, All AI Credit SKUs; all display $0 / $0 and Usage blocked"
+      },
+      "reliability": "All five rows displayed. No separate Actions SKU or repository budget displayed. Other product hard-stop settings not edited or inferred."
+    },
+    {
+      "id": "repository-actions",
+      "source": "https://github.com/yasthekiller007-lang/finleak-e2e-bench/settings/actions",
+      "date_utc": "2026-10-23",
+      "authenticated": true,
+      "values": {
+        "actions": "Allow all actions and reusable workflows",
+        "default_token": "Read repository contents and packages",
+        "allow_create_approve_pr": false,
+        "fork_pr_workflows": false,
+        "cross_repository_access": "Not accessible",
+        "retention_days": 90,
+        "require_full_sha_policy": false
+      },
+      "reliability": "Current settings observed, none changed. The specific workflow independently pins its actions by full SHA."
+    },
+    {
+      "id": "runners",
+      "source": "https://github.com/yasthekiller007-lang/finleak-e2e-bench/settings/actions/runners",
+      "date_utc": "2026-10-23",
+      "authenticated": true,
+      "values": {
+        "self_hosted_runners": "There are no runners configured",
+        "candidate_label": "ubuntu-24.04",
+        "historical_run_2_label": "ubuntu-24.04"
+      },
+      "reliability": "No self-hosted runner configured. Hosted scheduler capacity and third-run admission cannot be established from this page."
+    },
+    {
+      "id": "run-inventory",
+      "source": "Authenticated GitHub repository Actions run-list GETs, all available pages for both owned repositories",
+      "date_utc": "2026-10-23",
+      "authenticated": true,
+      "values": {
+        "bench_runs": 2,
+        "bench_run_ids": [
+          39851915526,
+          39889981015
+        ],
+        "bench_attempts": [
+          1,
+          1
+        ],
+        "bench_statuses": [
+          "completed",
+          "completed"
+        ],
+        "product_runs": 126,
+        "product_pages": [
+          100,
+          26
+        ],
+        "noncompleted_runs_found": 0
+      },
+      "reliability": "Point-in-time inventory only; does not reserve minutes or prevent later concurrent activity."
+    }
+  ],
+  "policy_sources": [
+    {
+      "url": "https://docs.github.com/en/billing/concepts/product-billing/github-actions",
+      "reviewed_on_utc": "2026-10-23",
+      "facts": "Owner is billed; no valid payment method blocks usage when included quota is exhausted; logs do not consume artifact storage; artifact storage updates can take 6–12 hours; cache has a separate allowance. Public policy, not an authenticated account admission response."
+    },
+    {
+      "url": "https://docs.github.com/en/billing/concepts/budgets-and-alerts",
+      "reviewed_on_utc": "2026-10-23",
+      "facts": "Blocking metered-product budgets differ from alerts. Budget applies from creation and can have a first-cycle caveat. Public policy does not explain this account's current Usage blocked scheduling state."
+    }
+  ],
+  "assessment": {
+    "decision": "BLOCKED",
+    "protections_observed": "Actions account-level $0 budget and checked hard-stop remain in place; no valid payment method banner. No paid usage is authorized.",
+    "included_minutes_sufficient_for_candidate_on_display": true,
+    "workflow_storage_uploads": "None: no artifact upload, no cache save, no custom image snapshot or registry push.",
+    "included_job_admission": "NOT VERIFIED",
+    "absolute_future_zero_charge_guarantee": "NOT ESTABLISHED by this review",
+    "missing": [
+      "Authenticated account-specific confirmation of what Usage blocked blocks while 994 displayed included minutes remain; no read-only admission endpoint observed.",
+      "Exact unrounded available storage / accrued-storage state and resolution of any applicable metering or first-cycle caveats if required for admission."
+    ],
+    "historical_runs_limit": "Two historical runs were admitted under prior observations. This proves historical admission only; it does not establish the current third-run admission state.",
+    "prior_review_limit": "The prior usage_blocked=false was explicitly a bounded interpretation. It is preserved in parent commit and checkpoint, not reused as a newly authenticated fact.",
+    "support_question": "For personal account yasthekiller007-lang, does the current account-wide Actions $0 hard-stop permit one private-repository ubuntu-24.04 job of at most ten minutes using included quota despite Usage blocked, while preventing additional billable minutes and all storage/cache overages without changing any billing protection? Clarify current effective admission, applicable SKUs, metering caveats, and the exact available storage shown rounded as 0/2 GB.",
+    "next_run_authorization": "NOT REQUESTED: preconditions remain incomplete."
+  },
+  "provenance": "Reviewer-authored redacted observation record based on authenticated GitHub UI and connector GETs. Not a GitHub-signed billing export; contains no token, payment detail, customer data or secret."
+}
