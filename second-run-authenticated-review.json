@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "purpose": "Fresh authenticated pre-authorization review for a second P0 run; preparation only",
+  "authorization_state": "SECOND_RUN_NOT_AUTHORIZED; no dispatch/rerun in this mission",
+  "account": {
+    "owner": "yasthekiller007-lang",
+    "type": "personal",
+    "plan_observed": "GitHub Pro",
+    "billed_owner": "yasthekiller007-lang"
+  },
+  "authenticated_observations": {
+    "billing": {
+      "source": "https://github.com/settings/billing",
+      "cycle": "2026-10-01/2026-10-31",
+      "minutes_included": 3000,
+      "minutes_used": 2005,
+      "minutes_remaining": 995,
+      "storage_display": "0 GB used / 2 GB included",
+      "actions_billable_usd_displayed": 0,
+      "gross_usage_usd_displayed": 12.03,
+      "included_discount_usd_displayed": 12.03,
+      "limit": "Storage display is rounded and billing metering can lag. Gross usage is offset by included discounts; it is not additional billable usage."
+    },
+    "budget": {
+      "source": "https://github.com/settings/billing/budgets/526ec831-b44c-4142-b015-4c851e45bfca/edit",
+      "product": "Actions",
+      "scope": "Account: all repositories owned by yasthekiller007-lang",
+      "amount_usd": 0,
+      "stop_usage_when_budget_limit_reached": true,
+      "payment_method_banner": "Payment method is missing",
+      "reported_budget_list_label": "Usage blocked",
+      "settings_changed": false
+    },
+    "repository": {
+      "source": "Authenticated GitHub connector and repository Actions settings",
+      "full_name": "yasthekiller007-lang/finleak-e2e-bench",
+      "visibility": "private",
+      "owner_type": "User",
+      "actor": "yasthekiller007-lang",
+      "actor_permission": "admin",
+      "actions_enabled": true,
+      "allowed_actions_policy": "Allow all actions and reusable workflows",
+      "default_workflow_token": "Read repository contents and packages",
+      "cross_repository_workflow_access": "Not accessible",
+      "fork_pull_request_workflows": false,
+      "workflow_permissions_changes": false
+    },
+    "dispatch_ui": {
+      "source": "https://github.com/yasthekiller007-lang/finleak-e2e-bench/actions/workflows/finleak-p0.yml",
+      "manual_button_available": true,
+      "d1_branch_selection_observed": true,
+      "current_refusal_message_observed": false,
+      "submitted": false,
+      "limit": "Readiness review only. No reservation or successful admission of a second job is asserted."
+    },
+    "concurrent_runs": [
+      {
+        "repository": "finleak-e2e-bench",
+        "status": "queued",
+        "count": 0
+      },
+      {
+        "repository": "finleak-e2e-bench",
+        "status": "in_progress",
+        "count": 0
+      },
+      {
+        "repository": "finleak-e2e-bench",
+        "status": "waiting",
+        "count": 0
+      },
+      {
+        "repository": "finleak-e2e-bench",
+        "status": "pending",
+        "count": 0
+      },
+      {
+        "repository": "finleak-e2e-bench",
+        "status": "requested",
+        "count": 0
+      },
+      {
+        "repository": "financial-leakage-ai",
+        "status": "queued",
+        "count": 0
+      },
+      {
+        "repository": "financial-leakage-ai",
+        "status": "in_progress",
+        "count": 0
+      },
+      {
+        "repository": "financial-leakage-ai",
+        "status": "waiting",
+        "count": 0
+      },
+      {
+        "repository": "financial-leakage-ai",
+        "status": "pending",
+        "count": 0
+      },
+      {
+        "repository": "financial-leakage-ai",
+        "status": "requested",
+        "count": 0
+      }
+    ]
+  },
+  "technical": {
+    "d1_commit": "790ece707da1bebcf59dc73f02de22e6069dc727",
+    "d1_parent": "e77169a19859716fb9c93d087d258f746dd1f726",
+    "d1_tree": "8cdf4058012280168f807b77c97e5c34a4b6f1c5",
+    "d1_checkpoint_sha256": "6b2ecd1f041edd82fe180c22bdae45a64aaa69af2a9b5753202decac6d9ce665",
+    "checkpoint_verification": "Original Library archive materialized and SHA-256/ZIP CRC/485 manifest entries verified earlier during this same preparation; recovered Git commit matched D1. Scratch was recycled on continuation, so immutable GitHub object/source identity is reused without rebuilding the bench.",
+    "manual_only": true,
+    "runner": "ubuntu-24.04",
+    "jobs": 1,
+    "timeout_minutes": 10,
+    "automatic_job_retries": 0,
+    "playwright_retries": 0,
+    "artifact_uploads": 0,
+    "cache_uploads": 0,
+    "production_secrets_referenced": false,
+    "workflow_sha256": "9495a5ba06d0f0dc369d2b23a386de9a1c42923b4bec67832793fce7b36d8522",
+    "frozen_manifest_sha256": "c4ca19ec23f9b397578a60c56642185cdaa1fdead8c3a4174dbbba42275c7b53",
+    "source_preservation": "Final commit must change only the new review document and root billing-evidence.json; the full product subtree and active workflow must remain identical to D1.",
+    "diagnostic_checks": "Four pure protocol cases checked in Work Cloud; 264 PASS/36 deselected are historical D1 results, not rerun or native E2E proof.",
+    "product_tree": "b3a7edc3a982606dfaa79e0b34389a91c3e7506b",
+    "job_timeout_minutes": 10,
+    "workflow_cache_uploads": 0,
+    "workflow_uses_production_secrets": false,
+    "frozen_manifest_entries": 425,
+    "diagnostic_fixture_sha256": "377dee5a42b75223f5da91e76937ec96ad7371b6ea5e949bb8aae6dbfd426072",
+    "source_integrity": "D1 immutable tree and manifest verified; final candidate must preserve all product subtree bytes",
+    "diagnostic_contract_cases_checked": 4,
+    "new_native_e2e_executed": false,
+    "historical_d1_tests": "264 PASS, 36 deselected; not rerun because unchanged code",
+    "checked_at_utc": "2026-10-23T01:48:17.795074+00:00"
+  },
+  "bounded_admission_assessment": {
+    "classification": "READY FOR SEPARATE AUTHORIZATION REVIEW, NOT JOB ACCEPTANCE OR E2E VALIDATION",
+    "basis": "Fresh authenticated 995-minute balance, $0 account-wide blocking Actions budget, missing payment method, standard Linux manual workflow permitted, no queued/active runs across both owned repositories, maximum one ten-minute job, no artifact/cache/custom-image upload.",
+    "usage_blocked_interpretation": "The budget badge remains Usage blocked. The evidence file usage_blocked=false denotes the bounded assessment that no effective prohibition on this included-quota candidate is presently observed; it does not remove or contradict the protective paid-usage badge.",
+    "first_cycle_and_delayed_metering": "Budget creation history does not retrospectively erase charges. Current displayed billable Actions usage is zero. This review addresses only the proposed bounded new job: included minutes have a large margin, it creates no storage uploads, and no payment method independently blocks paid overage. It is not a retrospective billing audit or a future absolute account-cost guarantee.",
+    "storage_admission_floor_mb": 512,
+    "storage_floor_basis": "Conservative assessed headroom under the observed rounded 0/2 GB display, not a byte-exact storage measurement. Planned artifact/cache storage increment is zero.",
+    "if_github_refuses": "Stop. No budget/payment/policy change, retry, rerun or second dispatch.",
+    "at_later_authorized_launch": "Recheck branch head and that these observations remain fresh; changed facts or any platform refusal stop execution.",
+    "additional_paid_usage_authorized": false,
+    "no_absolute_future_admission_or_cost_guarantee": true
+  },
+  "documentary_basis": [
+    {
+      "source": "https://docs.github.com/en/billing/concepts/product-billing/github-actions",
+      "reviewed": "Included standard-runner quota belongs to repository owner; no payment method blocks usage once quota is exhausted; logs/summaries do not consume artifact allowance; storage figures can lag."
+    },
+    {
+      "source": "https://docs.github.com/en/billing/concepts/budgets-and-alerts",
+      "reviewed": "Budget type/scope define contributing paid use; blocking controls differ from alerts; first-cycle budget caveat retained."
+    }
+  ],
+  "observed_ui_incident": {
+    "description": "Earlier in this preparation, selecting Edit unexpectedly opened Delete budget confirmation. Cancel was selected, deletion was not confirmed. Subsequent direct read of the same budget verified amount 0 and hard-stop checked. No billing mutation."
+  },
+  "maintained_restrictions": {
+    "phase7": "NOT QUALIFIED",
+    "pilot": "NO-GO",
+    "production": "NOT AUTHORIZED",
+    "user_pc": "NOT AUTHORIZED",
+    "scanner": "BLOCKED",
+    "native_e2e_after_D1": "NOT EXECUTED"
+  },
+  "verified_at_utc": "2026-10-23T01:50:11.658985+00:00"
+}
