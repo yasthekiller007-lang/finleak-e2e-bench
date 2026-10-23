@@ -92,13 +92,17 @@ les champs inattendus. Aucun message d'exception ou traceback n'est publié.
 ## Vérifications réellement exécutées dans Work Cloud
 
 Python de développement 3.12.14, dépendances backend installées depuis uv.lock,
-aucune modification des dépendances. Aucun PostgreSQL, Docker, IdP ou workflow
-n'a été lancé pour D2. Les tests du protocole et des orchestrateurs emploient
-des doubles explicitement identifiés.
+aucune modification des dépendances. Aucun PostgreSQL, Docker ou workflow n'a
+été lancé pour D2. Les tests du protocole de fixture et des orchestrateurs
+emploient des doubles explicitement identifiés. Les tests existants du fournisseur
+OIDC démarrent un serveur HTTP loopback synthétique et vérifient réellement
+découverte, signatures RSA/JWKS et échanges de codes. Ces tests de composants,
+sans navigateur ni PostgreSQL, ne constituent pas un parcours FINLEAK E2E.
 
 | Suite | Résultat |
 |---|---|
 | D2 ciblée | 75 PASS |
+| Fournisseur OIDC, HTTP/JWKS (sous-ensemble de la suite large) | 21 PASS, aucun navigateur/PostgreSQL |
 | D2 tests PostgreSQL préparés | 3 SKIP, aucune connexion faute de TEST_DATABASE_URL |
 | Suite large D2, hors integration | 964 PASS / 8 FAIL / 22 SKIP / 418 deselected |
 | Même suite sur base 180320a isolée | 894 PASS / 3 FAIL / 22 SKIP / 415 deselected |
