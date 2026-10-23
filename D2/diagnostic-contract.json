@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "transport": "Optional diagnostic_d2 extension, alongside unchanged D1 diagnostic.reason_code and phase",
+  "fields": [
+    "schema_version",
+    "stage",
+    "substage",
+    "fixture_status",
+    "reason_code",
+    "exception_category",
+    "sqlstate",
+    "e2e_executed"
+  ],
+  "public_parent": "fixture_diagnostic.diagnostic_d2 in runtime result",
+  "sqlstate": "null unless the bounded exception chain contains an actual psycopg.Error with a five-character uppercase/digit state other than 00000; never from arbitrary error attributes",
+  "classification": "Producer uses actual SQLAlchemy/psycopg exception classes; never publishes __str__, SQL, parameters, traceback or environment.",
+  "status_contract": {
+    "FIXTURE_ONLY": 0,
+    "FAIL": 1,
+    "BLOCKED": 2,
+    "PASS": "Never emitted by fixture; reserved for complete existing E2E checks."
+  },
+  "malformed_or_contradictory": "FAIL, DIAGNOSTIC_UNAVAILABLE or FIXTURE_PROTOCOL_MISMATCH; no mutation retry",
+  "substage_source": "product/backend/acceptance/p0_diagnostics.py:D2_SUBSTAGES",
+  "historical_d1_compatibility": "Original packet shape and parsing still accepted; five D1 seed test doubles cannot perform the newly mandatory operator helper."
+}

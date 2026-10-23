@@ -14,12 +14,12 @@ class Blocked(Exception):
     pass
 
 
-# One explicit D1 diagnostic-only overlay. The historical manifest stays frozen.
+# One explicit D2 attributed-fixture overlay. The historical manifest stays frozen.
 # Both the original manifest entry and the reviewed replacement must match.
 DIAGNOSTIC_SOURCE_OVERLAY = {
     "backend/acceptance/product_v11.py": (
         "6bffe94465331275a46bc43c403dcef7fc486d63b243c14b7d524cdc598a544d",
-        "377dee5a42b75223f5da91e76937ec96ad7371b6ea5e949bb8aae6dbfd426072",
+        "0e66c553796d0aad86f9fdd7b4b62c41eda8ebe9fa7dfa783c43f954ba600c76",
     ),
 }
 

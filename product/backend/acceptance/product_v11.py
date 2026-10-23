@@ -12,17 +12,21 @@ import os
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from acceptance.p0_diagnostics import detail
 from alembic.config import Config
 from alembic.script import ScriptDirectory
+from sqlalchemy import create_engine, func, select, text
+from sqlalchemy.engine import make_url
+from sqlalchemy.orm import Session
+
+from acceptance.p0_diagnostics import detail
+from acceptance.p0_fixture_errors import failure_detail
+from app.admin import operator_context
 from app.auth.oidc import provider_json
 from app.db.models import Document, Organization, OrganizationMembership, User, UserIdentity
 from app.domain.types import DocumentType, ProcessingStatus
 from app.financial.models import FinancialAudit, FinancialEvaluation, FinancialFindingDecision
 from app.modules.storage import LocalObjectStorage, document_storage_key
-from sqlalchemy import create_engine, func, select, text
-from sqlalchemy.engine import make_url
-from sqlalchemy.orm import Session
+from app.operations.models import PilotAccessJournal
 from tests.financial_fixtures import bill, packet, term
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -137,6 +141,7 @@ def preflight():
         return blocked
     db = None
     phase = "postgres_preflight"
+    substage = "database_connect"
     try:
         db = engine()
         with db.connect() as connection:
@@ -162,6 +167,7 @@ def preflight():
                     "diagnostic": detail("POSTGRES_ROLE_REJECTED", phase),
                 }
             phase = "alembic"
+            substage = "migration_check"
             head = ScriptDirectory.from_config(
                 Config(str(BACKEND / "alembic.ini"))
             ).get_current_head()
@@ -173,6 +179,7 @@ def preflight():
                     "diagnostic": detail("ALEMBIC_HEAD_MISMATCH", phase),
                 }
         phase = "oidc_discovery"
+        substage = "discovery_fetch"
         issuer = os.environ["OIDC_ISSUER_URL"]
         metadata = provider_json(issuer.rstrip("/") + "/.well-known/openid-configuration", False)
         if (
@@ -195,7 +202,12 @@ def preflight():
             "oidc_discovery": "AVAILABLE_NOT_AUTHENTICATED",
             "e2e": "NOT_EXECUTED",
         }
-    except Exception:
+    except Exception as error:
+        reason = {
+            "postgres_preflight": "DATABASE_PREFLIGHT_ERROR",
+            "alembic": "ALEMBIC_PREFLIGHT_ERROR",
+            "oidc_discovery": "OIDC_DISCOVERY_ERROR",
+        }[phase]
         return {
             "status": "BLOCKED",
             "missing": ["database_or_test_issuer_preflight"],
@@ -208,6 +220,7 @@ def preflight():
                 }[phase],
                 phase,
             ),
+            "diagnostic_d2": failure_detail(error, reason, phase, substage),
         }
     finally:
         if db is not None:
@@ -220,9 +233,11 @@ def seed():
         return result
     db = None
     phase = "postgres_preflight"
+    substage = "database_connect"
     try:
         db = engine()
         phase = "fixture_directory"
+        substage = "directory_check"
         if (DIRECTORY / "roster.json").exists():
             return {
                 "status": "BLOCKED",
@@ -231,8 +246,10 @@ def seed():
                 "diagnostic": detail("FIXTURE_DIRECTORY_NOT_FRESH", phase),
             }
         phase = "storage_initialization"
+        substage = "storage_initialize"
         storage = LocalObjectStorage(DIRECTORY / "originals")
         phase = "test_database"
+        substage = "empty_database_check"
         with Session(db) as session, session.begin():
             if session.scalar(select(func.count()).select_from(Organization)) or session.scalar(
                 select(func.count()).select_from(User)
@@ -244,29 +261,46 @@ def seed():
                     "diagnostic": detail("TEST_DATABASE_NOT_EMPTY", phase),
                 }
             phase = "synthetic_identities"
-            company, other = (
-                Organization(name="DEMO Product V1.1 Industries"),
-                Organization(name="DEMO Inaccessible Tenant"),
-            )
+            substage = "users_insert"
             owner, analyst = (
                 User(display_name="DEMO Finance Owner", email=None),
                 User(display_name="DEMO Financial Analyst", email=None),
             )
-            session.add_all([company, other, owner, analyst])
+            session.add_all([owner, analyst])
+            substage = "users_flush"
             session.flush()
-            for user, role, subject in [
-                (owner, "owner", os.environ["PRODUCT_OWNER_SUBJECT"]),
-                (analyst, "analyst", os.environ["PRODUCT_ANALYST_SUBJECT"]),
+            substage = "operator_context"
+            operator_reason = "DEMO P0 attributed synthetic fixture initialization"
+            operator_context(session, owner.id, operator_reason)
+            substage = "organizations_insert"
+            company, other = (
+                Organization(name="DEMO Product V1.1 Industries"),
+                Organization(name="DEMO Inaccessible Tenant"),
+            )
+            session.add_all([company, other])
+            substage = "organizations_flush"
+            session.flush()
+            substage = "oidc_identities_insert"
+            for user, subject in [
+                (owner, os.environ["PRODUCT_OWNER_SUBJECT"]),
+                (analyst, os.environ["PRODUCT_ANALYST_SUBJECT"]),
             ]:
                 session.add(
                     UserIdentity(
                         user_id=user.id, issuer=os.environ["OIDC_ISSUER_URL"], subject=subject
                     )
                 )
+            substage = "oidc_identities_flush"
+            session.flush()
+            substage = "memberships_insert"
+            for user, role in [(owner, "owner"), (analyst, "analyst")]:
                 session.add(
                     OrganizationMembership(organization_id=company.id, user_id=user.id, role=role)
                 )
+            substage = "memberships_flush"
+            session.flush()
             phase = "synthetic_documents"
+            substage = "documents_prepare"
             docs = {}
             ids, originals, t, b, governing = source_material()
             for kind, data in originals.items():
@@ -289,6 +323,8 @@ def seed():
                     )
                 )
                 docs[kind] = str(document_id)
+            substage = "documents_flush"
+            session.flush()
             roster = {
                 "synthetic": True,
                 "organization": str(company.id),
@@ -304,7 +340,25 @@ def seed():
                 "scanner": "BLOCKED",
             }
             phase = "fixture_transaction"
+            substage = "audit_verify"
+            audit = session.scalars(
+                select(PilotAccessJournal).where(
+                    PilotAccessJournal.actor_id == owner.id,
+                    PilotAccessJournal.reason == operator_reason,
+                    PilotAccessJournal.organization_id.in_([company.id, other.id]),
+                )
+            ).all()
+            assert sorted(row.action for row in audit) == [
+                "organization_memberships.insert",
+                "organization_memberships.insert",
+                "organizations.insert",
+                "organizations.insert",
+            ]
+            assert all(row.request_id is not None for row in audit)
+            assert len({row.request_id for row in audit}) == 1
+            substage = "transaction_commit"
         phase = "fixture_roster"
+        substage = "roster_write"
         DIRECTORY.mkdir(parents=True, exist_ok=True)
         (DIRECTORY / "roster.json").write_text(json.dumps(roster, indent=2) + "\n")
         return {
@@ -313,14 +367,22 @@ def seed():
             "roster": str(DIRECTORY / "roster.json"),
             "e2e": "NOT_EXECUTED",
         }
-    except AssertionError:
+    except AssertionError as error:
         return {
             "status": "FAIL",
             "check": "persisted_financial_invariants",
             "e2e": "NOT_EXECUTED",
             "diagnostic": detail("FIXTURE_INVARIANT_FAILED", phase),
+            "diagnostic_d2": failure_detail(
+                error, "FIXTURE_INVARIANT_FAILED", phase, substage, fixture_status="FAIL"
+            ),
         }
-    except Exception:
+    except Exception as error:
+        reason = (
+            "DATABASE_PREFLIGHT_ERROR"
+            if phase == "postgres_preflight"
+            else "FIXTURE_PERSISTENCE_ERROR"
+        )
         return {
             "status": "BLOCKED",
             "missing": ["fixture_or_witness_verification_failed"],
@@ -331,6 +393,7 @@ def seed():
                 else "FIXTURE_PERSISTENCE_ERROR",
                 phase,
             ),
+            "diagnostic_d2": failure_detail(error, reason, phase, substage),
         }
     finally:
         if db is not None:

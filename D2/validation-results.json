@@ -1,0 +1,45 @@
+{
+  "decision": "ROOT CAUSE IDENTIFIED \u2014 FIX CANDIDATE READY",
+  "meaning": "Attribution defect demonstrated by frozen code and real SQLAlchemy UOW plan; candidate is not a native PostgreSQL repair validation.",
+  "baseline": {
+    "commit": "180320a7b07aadd0593eafe7a2ded9f3f5d83b81",
+    "passed": 894,
+    "failed": 3,
+    "skipped": 22,
+    "deselected": 415,
+    "failures": [
+      "tests.test_preflight::test_expected_schema_head_matches_the_actual_migration_chain",
+      "tests.test_supply_chain_gate::test_scoped_review_is_visible_and_not_a_clean_or_fixed_finding",
+      "tests.test_supply_chain_gate::test_custom_patch_review_requires_actual_three_same_head_library_inventories"
+    ]
+  },
+  "d2_broad_suite": {
+    "passed": 964,
+    "failed": 8,
+    "skipped": 22,
+    "deselected": 418,
+    "new_failures_in_unchanged_d1_doubles": [
+      "test_fixture_diagnostic_phases::test_seed_internal_phases_preserve_semantics_without_raw_exceptions[documents-FIXTURE_PERSISTENCE_ERROR-synthetic_documents-BLOCKED]",
+      "test_fixture_diagnostic_phases::test_seed_internal_phases_preserve_semantics_without_raw_exceptions[transaction-FIXTURE_PERSISTENCE_ERROR-fixture_transaction-BLOCKED]",
+      "test_fixture_diagnostic_phases::test_seed_internal_phases_preserve_semantics_without_raw_exceptions[roster-FIXTURE_PERSISTENCE_ERROR-fixture_roster-BLOCKED]",
+      "test_fixture_diagnostic_phases::test_seed_internal_phases_preserve_semantics_without_raw_exceptions[assertion-FIXTURE_INVARIANT_FAILED-synthetic_documents-FAIL]",
+      "test_fixture_diagnostic_phases::test_successful_source_only_fixture_keeps_the_contract"
+    ]
+  },
+  "d2_targeted": {
+    "passed": 75,
+    "failed": 0,
+    "native_postgres": false
+  },
+  "prepared_native_tests": {
+    "skipped": 3,
+    "executed": 0,
+    "reason": "No explicit TEST_DATABASE_URL; existing fixture skips without connecting."
+  },
+  "lint": "PASS",
+  "format": "PASS",
+  "third_run_status": "BLOCKED FOR EXECUTION: no authorization; no fresh financial review; five unmodified D1 doubles need separately approved adaptation; native D2 remains not verified.",
+  "no_third_run": true,
+  "migration_changes": false,
+  "historical_test_changes": false
+}

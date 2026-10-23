@@ -5,6 +5,7 @@ public diagnostic. The legacy fixture JSON remains private subprocess output.
 """
 
 import json
+import re
 
 SEED_STAGE = "synthetic_document_identity_fixture"
 PHASES = frozenset(
@@ -75,6 +76,89 @@ MISSING_NAMES = frozenset(LEGACY_MISSING) | {
     "explicit_synthetic_development_authorization",
 }
 
+# D2 is an optional, closed extension. D1 receipts retain their exact shape.
+D2_SUBSTAGES = {
+    "postgres_preflight": {"database_connect"},
+    "alembic": {"migration_check"},
+    "oidc_discovery": {"discovery_fetch"},
+    "fixture_directory": {"directory_check"},
+    "storage_initialization": {"storage_initialize"},
+    "test_database": {"empty_database_check"},
+    "synthetic_identities": {
+        "users_insert",
+        "users_flush",
+        "operator_context",
+        "organizations_insert",
+        "organizations_flush",
+        "oidc_identities_insert",
+        "oidc_identities_flush",
+        "memberships_insert",
+        "memberships_flush",
+    },
+    "synthetic_documents": {"documents_prepare", "documents_flush"},
+    "fixture_transaction": {"audit_verify", "transaction_commit"},
+    "fixture_roster": {"roster_write"},
+    "fixture_or_witness": {"entrypoint"},
+}
+D2_EXCEPTION_CATEGORIES = frozenset(
+    {
+        "sqlalchemy_integrity",
+        "sqlalchemy_database",
+        "sqlalchemy_orm",
+        "postgresql",
+        "operator_rejected",
+        "assertion",
+        "filesystem",
+        "timeout",
+        "unexpected",
+    }
+)
+
+
+def validate_d2(value, *, reason_code, phase, fixture_status):
+    keys = {
+        "schema_version",
+        "stage",
+        "substage",
+        "fixture_status",
+        "reason_code",
+        "exception_category",
+        "sqlstate",
+        "e2e_executed",
+    }
+    if not isinstance(value, dict) or set(value) != keys:
+        raise ValueError("Invalid D2 diagnostic")
+    if (
+        type(value["schema_version"]) is not int
+        or value["schema_version"] != 2
+        or value["stage"] != SEED_STAGE
+        or not isinstance(value["substage"], str)
+        or value["substage"] not in D2_SUBSTAGES.get(phase, set())
+        or value["fixture_status"] != fixture_status
+        or fixture_status not in {"BLOCKED", "FAIL"}
+        or value["reason_code"] != reason_code
+        or not isinstance(value["exception_category"], str)
+        or value["exception_category"] not in D2_EXCEPTION_CATEGORIES
+        or value["e2e_executed"] is not False
+        or not (
+            value["sqlstate"] is None
+            or isinstance(value["sqlstate"], str)
+            and re.fullmatch(r"[0-9A-Z]{5}", value["sqlstate"]) is not None
+            and value["sqlstate"] != "00000"
+        )
+        or value["sqlstate"] is not None
+        and value["exception_category"]
+        not in {
+            "sqlalchemy_integrity",
+            "sqlalchemy_database",
+            "sqlalchemy_orm",
+            "postgresql",
+        }
+        or reason_code == "FIXTURE_INVARIANT_FAILED"
+        and value["exception_category"] != "assertion"
+    ):
+        raise ValueError("Invalid D2 diagnostic")
+
 
 def detail(reason_code, phase):
     """Producer-side constants only; reject accidental arbitrary text."""
@@ -83,7 +167,7 @@ def detail(reason_code, phase):
     return {"reason_code": reason_code, "phase": phase}
 
 
-def public_diagnostic(exit_code, fixture_status, reason_code, phase):
+def public_diagnostic(exit_code, fixture_status, reason_code, phase, *, diagnostic_d2=None):
     value = {
         "schema_version": 1,
         "stage": SEED_STAGE,
@@ -93,6 +177,8 @@ def public_diagnostic(exit_code, fixture_status, reason_code, phase):
         "category": REASONS[reason_code][0],
         "e2e_executed": False,
     }
+    if diagnostic_d2 is not None:
+        value["diagnostic_d2"] = diagnostic_d2
     validate_diagnostic(value)
     return value
 
@@ -108,7 +194,7 @@ def validate_diagnostic(value):
         "category",
         "e2e_executed",
     }
-    if not isinstance(value, dict) or set(value) != keys:
+    if not isinstance(value, dict) or set(value) not in (keys, keys | {"diagnostic_d2"}):
         raise ValueError("Invalid public fixture diagnostic")
     code, phase = value["reason_code"], value["phase"]
     if (
@@ -148,6 +234,8 @@ def validate_diagnostic(value):
         )
     ):
         raise ValueError("Contradictory public fixture diagnostic")
+    if "diagnostic_d2" in value:
+        validate_d2(value["diagnostic_d2"], reason_code=code, phase=phase, fixture_status=status)
 
 
 def validate_result_diagnostic(value):
@@ -177,8 +265,10 @@ def seed_outcome(exit_code, stdout=b"", *, timeout=False, unavailable=False):
     SQL/OIDC failure. A documented code 2 + BLOCKED remains BLOCKED.
     """
 
-    def result(status, code, phase="fixture_process", observed="UNAVAILABLE"):
-        return status, public_diagnostic(exit_code, observed, code, phase)
+    def result(status, code, phase="fixture_process", observed="UNAVAILABLE", diagnostic_d2=None):
+        return status, public_diagnostic(
+            exit_code, observed, code, phase, diagnostic_d2=diagnostic_d2
+        )
 
     if timeout:
         return result("BLOCKED", "FIXTURE_PROCESS_TIMEOUT")
@@ -204,6 +294,7 @@ def seed_outcome(exit_code, stdout=b"", *, timeout=False, unavailable=False):
             "diagnostic",
             "roster",
             "financial_records_inserted",
+            "diagnostic_d2",
         }:
             raise ValueError()
         status = value.get("status")
@@ -216,6 +307,8 @@ def seed_outcome(exit_code, stdout=b"", *, timeout=False, unavailable=False):
             "BLOCKED": {"status", "e2e", "missing", "diagnostic"},
             "FAIL": {"status", "e2e", "check", "diagnostic"},
         }
+        shapes["BLOCKED"].add("diagnostic_d2")
+        shapes["FAIL"].add("diagnostic_d2")
         if set(value) - shapes[status]:
             raise ValueError()
         if status == "BLOCKED" and not value.get("missing"):
@@ -295,6 +388,9 @@ def seed_outcome(exit_code, stdout=b"", *, timeout=False, unavailable=False):
                 code, phase = "MISSING_TEST_PRECONDITION", "parameters"
             else:
                 code, phase = "DIAGNOSTIC_UNAVAILABLE", "fixture_process"
+        extension = value.get("diagnostic_d2")
+        if "diagnostic_d2" in value:
+            validate_d2(extension, reason_code=code, phase=phase, fixture_status=status)
     except (ValueError, TypeError, KeyError, RecursionError, UnicodeError):
         return result("FAIL", "DIAGNOSTIC_UNAVAILABLE")
     if {0: "FIXTURE_ONLY", 1: "FAIL", 2: "BLOCKED"}[exit_code] != status or (
@@ -303,4 +399,4 @@ def seed_outcome(exit_code, stdout=b"", *, timeout=False, unavailable=False):
         or (status == "BLOCKED" and REASONS[code][0] == "assertion")
     ):
         return result("FAIL", "FIXTURE_PROTOCOL_MISMATCH", observed=status)
-    return result(status, code, phase, status)
+    return result(status, code, phase, status, extension)

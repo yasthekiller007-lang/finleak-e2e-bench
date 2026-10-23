@@ -1,0 +1,33 @@
+--- a/product/bench/p0/tests/test_fixture_diagnostic_phases.py
++++ b/product/bench/p0/tests/test_fixture_diagnostic_phases.py
+@@ -148,0 +149,2 @@
++            self.settings = {}
++            self.journal = []
+@@ -167,0 +170,8 @@
++        def get(self, cls, identity):
++            return next((obj for obj in self.objects
++                         if isinstance(obj, cls) and obj.id == identity), None)
++
++        def execute(self, sql, params):
++            assert "set_config(:setting,:value,true)" in str(sql)
++            self.settings[params["setting"]] = params["value"]
++
+@@ -170,4 +180,14 @@
+-                obj.id = uuid4()
+-
+-        def add(self, _obj):
+-            pass
++                if obj.id is None:
++                    obj.id = uuid4()
++                    if obj.__tablename__ in {"organizations", "organization_memberships"}:
++                        assert self.settings.get("fla.operator_actor")
++                        self.journal.append(SimpleNamespace(
++                            action=obj.__tablename__ + ".insert",
++                            request_id=self.settings["fla.operator_request"],
++                        ))
++
++        def add(self, obj):
++            self.objects.append(obj)
++
++        def scalars(self, _sql):
++            return SimpleNamespace(all=lambda: self.journal)

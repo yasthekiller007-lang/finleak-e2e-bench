@@ -1,0 +1,40 @@
+{
+  "fixture": {
+    "scenario": 37,
+    "source_material": 47,
+    "guard": 76,
+    "engine": 130,
+    "preflight": 138,
+    "seed": 230,
+    "witness": 403,
+    "main": 466
+  },
+  "admin": {
+    "operator_context": 17,
+    "lock_organization": 36,
+    "checked_identity": 48,
+    "membership_for": 57,
+    "protect_owner": 69,
+    "create_organization": 84,
+    "grant_membership": 94,
+    "revoke_membership": 121,
+    "transfer_owner": 132,
+    "deactivate_user": 154,
+    "offboard_tenant": 176,
+    "main": 200
+  },
+  "diagnostic": {
+    "validate_d2": 118,
+    "detail": 163,
+    "public_diagnostic": 170,
+    "validate_diagnostic": 186,
+    "validate_result_diagnostic": 241,
+    "_unique": 252,
+    "seed_outcome": 261,
+    "result": 268
+  },
+  "error_extraction": {
+    "postgres_sqlstate": 11,
+    "failure_detail": 34
+  }
+}
