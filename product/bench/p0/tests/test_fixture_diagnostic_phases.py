@@ -144,8 +144,15 @@ def synthetic_seed_doubles(monkeypatch, tmp_path, failure=None):
             raise AssertionError(CANARY)
 
     class SessionDouble:
+        """In-memory audit simulation only; never evidence of PostgreSQL triggers."""
+
         def __init__(self, _db):
             self.objects = []
+            self.persisted = {}
+            self.settings = {}
+            self.journal = []
+            self.disabled_users = set()
+            self.in_transaction = False
 
         def __enter__(self):
             return self
@@ -155,22 +162,126 @@ def synthetic_seed_doubles(monkeypatch, tmp_path, failure=None):
 
         @contextmanager
         def begin(self):
-            yield self
-            fail("transaction")
+            if self.in_transaction:
+                raise ValueError("Nested synthetic transaction not supported")
+            previous_objects = self.objects[:]
+            previous_persisted = self.persisted.copy()
+            previous_journal = self.journal[:]
+            previous_disabled_users = self.disabled_users.copy()
+            self.in_transaction = True
+            try:
+                yield self
+                fail("transaction")
+            except BaseException:
+                self.objects = previous_objects
+                self.persisted = previous_persisted
+                self.journal = previous_journal
+                self.disabled_users = previous_disabled_users
+                raise
+            finally:
+                self.settings.clear()
+                self.in_transaction = False
 
-        def scalar(self, _sql):
-            return 1 if failure == "not_empty" else 0
+        def scalar(self, sql):
+            if "pilot_user_access" in str(sql):
+                actor = next(iter(sql.compile().params.values()))
+                return False if actor in self.disabled_users else None
+            if failure == "not_empty":
+                return 1
+            table = "organizations" if "FROM organizations" in str(sql) else "users"
+            return sum(obj.__tablename__ == table for obj in self.persisted.values())
 
         def add_all(self, objects):
             self.objects += objects
             fail("identities")
 
+        def get(self, cls, identity):
+            return self.persisted.get((cls, identity))
+
+        def _actor(self, value):
+            if not isinstance(value, str):
+                raise ValueError("Synthetic operator identity required")
+            actor = next(
+                (
+                    obj
+                    for obj in self.persisted.values()
+                    if obj.__tablename__ == "users" and str(obj.id) == value
+                ),
+                None,
+            )
+            if actor is None or actor.id in self.disabled_users:
+                raise ValueError("Existing active synthetic operator required")
+            return actor
+
+        def execute(self, sql, params):
+            from uuid import UUID
+
+            if not self.in_transaction or str(sql) != "SELECT set_config(:setting,:value,true)":
+                raise ValueError("Transaction-local synthetic operator settings required")
+            setting, value = params["setting"], params["value"]
+            if setting == "fla.operator_actor":
+                self._actor(value)
+            elif setting == "fla.operator_reason":
+                if not isinstance(value, str) or not 1 <= len(value.strip()) <= 4000:
+                    raise ValueError("Synthetic operator purpose required")
+            elif setting == "fla.operator_request":
+                UUID(value)
+            else:
+                raise ValueError("Unknown synthetic operator setting")
+            self.settings[setting] = value
+
+        def _attribution(self):
+            from uuid import UUID
+
+            if not self.in_transaction:
+                raise ValueError("Synthetic attribution outside transaction")
+            actor = self._actor(self.settings.get("fla.operator_actor"))
+            reason = self.settings.get("fla.operator_reason")
+            if not isinstance(reason, str) or not 1 <= len(reason.strip()) <= 4000:
+                raise ValueError("Synthetic operator purpose required")
+            request = UUID(self.settings.get("fla.operator_request", ""))
+            return actor.id, reason, request
+
         def flush(self):
             for obj in self.objects:
-                obj.id = uuid4()
+                if obj.id is not None and (type(obj), obj.id) in self.persisted:
+                    continue
+                audited = obj.__tablename__ in {
+                    "organizations",
+                    "organization_memberships",
+                }
+                if audited:
+                    actor_id, reason, request_id = self._attribution()
+                    if obj.__tablename__ == "organization_memberships":
+                        if obj.user_id in self.disabled_users or not any(
+                            row.__tablename__ == "users" and row.id == obj.user_id
+                            for row in self.persisted.values()
+                        ):
+                            raise ValueError("Existing active synthetic member required")
+                if obj.id is None:
+                    obj.id = uuid4()
+                self.persisted[type(obj), obj.id] = obj
+                if audited:
+                    self.journal.append(
+                        SimpleNamespace(
+                            action=obj.__tablename__ + ".insert",
+                            request_id=request_id,
+                            actor_id=actor_id,
+                            reason=reason,
+                            organization_id=(
+                                obj.id
+                                if obj.__tablename__ == "organizations"
+                                else obj.organization_id
+                            ),
+                            simulated=True,
+                        )
+                    )
 
-        def add(self, _obj):
-            pass
+        def add(self, obj):
+            self.objects.append(obj)
+
+        def scalars(self, _sql):
+            return SimpleNamespace(all=lambda: self.journal[:])
 
     monkeypatch.setattr(fixture, "Session", SessionDouble)
 
